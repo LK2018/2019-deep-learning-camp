@@ -3,15 +3,18 @@
 import numpy as np
 from torch import nn
 
+
 class BpNet(nn.Module):
     def __init__(self):
         super(BpNet, self).__init__()
         self.fc = nn.Sequential(
-            nn.Linear(200, 100),
+            nn.Linear(200, 80),
             nn.Sigmoid(),
-            nn.Linear(100, 50),
+            nn.Linear(80, 50),
             nn.Sigmoid(),
-            nn.Linear(50, 16)
+            nn.Linear(50, 30),
+            nn.Sigmoid(),
+            nn.Linear(30, 16)
         )
 
     def forward(self, x):
