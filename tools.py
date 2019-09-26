@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import sys
+import os
 import pdb
 import random
 import numpy as np
@@ -17,50 +17,55 @@ def read_data(data_dir, target_dir):
     return data, target
 
 
-def produce_samples(data, target, prop):
-    data = data.reshape(data.shape[0], data.shape[1]*data.shape[2]).T  # data size: [height*width, channel]
-    target = target.ravel()  # target size: [height*width, ]
-    data = data[target != 0]  # remove background
-    target = target[target != 0] - 1 # class numbers bingin with 0
-    data_tmp = []
-    target_tmp = []
-    for i in range(max(target) + 1):
-        data_tmp.append(data[target == i])
-        target_tmp.append(target[target == i])
+def get_masks(target, train_prop, val_prop, save_dir=None):
+    assert train_prop + val_prop < 1
+    train_mask = np.zeros((target.shape[0], target.shape[1]))
+    val_mask = train_mask.copy()
+    test_mask = train_mask.copy()
 
-    for i in range(len(data_tmp)):
-        sample_num = len(data_tmp[i])
-        train_num = int(round(sample_num*prop))
-        train_ind = random.sample(range(0, sample_num), train_num)  # indices of training samples
-        test_ind = list(set(np.arange(0, sample_num)).difference(train_ind))  # indices of test samples
-        train_i = np.hstack((data_tmp[i][train_ind], target_tmp[i][train_ind][:, np.newaxis]))
-        test_i = np.hstack((data_tmp[i][test_ind], target_tmp[i][test_ind][:, np.newaxis]))
-        if i == 0:
-            train = train_i
-            test = test_i
-        else:
-            train = np.vstack((train, train_i))
-            test = np.vstack((test, test_i))
-    np.random.shuffle(train)
-    np.random.shuffle(test)
+    for i in range(1, target.max() + 1):
+        idx = np.argwhere(target == i)
+        train_num = int(round(len(idx) * train_prop))
+        val_num = int(round(len(idx) * val_prop))
 
-    train_data = train[:, :-1]
-    train_target = train[:, -1]
-    test_data = test[:, :-1]
-    test_target = test[:, -1]
+        np.random.shuffle(idx)
+        train_idx = idx[:train_num]
+        val_idx = idx[train_num:train_num + val_num]
+        test_idx = idx[train_num + val_num:]
 
-    train_data = torch.from_numpy(train_data).float()
-    train_target = torch.from_numpy(train_target).long()
-    test_data = torch.from_numpy(test_data).float()
-    test_target = torch.from_numpy(test_target).long()
+        train_mask[train_idx[:, 0], train_idx[:, 1]] = 1
+        val_mask[val_idx[:, 0], val_idx[:, 1]] = 1
+        test_mask[test_idx[:, 0], test_idx[:, 1]] = 1
+
+    if save_dir:
+        folder_name = 'train_' + str(train_prop) + '_val_' + str(val_prop)
+        save_dir = os.path.join(save_dir, folder_name)
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+        sio.savemat(os.path.join(save_dir, 'train_mask.mat'), {'train_mask': train_mask})
+        sio.savemat(os.path.join(save_dir, 'val_mask.mat'), {'val_mask': val_mask})
+        sio.savemat(os.path.join(save_dir, 'test_mask.mat'), {'test_mask': test_mask})
+
+    return train_mask, val_mask, test_mask
+
+
+def get_samples(data, target, mask):
+    data = data*mask
+    target = target*mask
+
+    data = data.reshape(data.shape[0], data.shape[1]*data.shape[2]).T
+    target = target.ravel()
+    data = data[target != 0]
+    target = target[target != 0] - 1
+
+    data = torch.from_numpy(data).float()
+    target = torch.from_numpy(target).long()
 
     if torch.cuda.is_available():
-        train_data = train_data.cuda()
-        train_target = train_target.cuda()
-        test_data = test_data.cuda()
-        test_target = test_target.cuda()
+        data = data.cuda()
+        target = target.cuda()
 
-    return train_data, train_target, test_data, test_target
+    return data, target
 
 
 def normalize(data):
@@ -110,10 +115,12 @@ def plot_classification_maps(predict, target, **kwargs):
 if __name__ == '__main__':
     data_dir = './data/Indian_pines_corrected.mat'
     target_dir = './data/Indian_pines_gt.mat'
-    prop = 0.2
+    mask_save_dir = './data'
+    train_prop = 0.2
+    val_prop = 0.2
     batch_size = 2051
     data, target = read_data(data_dir, target_dir)
-    train_data, train_target, test_data, test_target = produce_samples(data, target, prop)
+    # train_data, train_target, test_data, test_target = produce_samples(data, target, prop)
     # pdb.set_trace()
     # print('train_data', train_data.shape)
     # print('train_target', train_target.shape)
@@ -121,5 +128,22 @@ if __name__ == '__main__':
     # print('test_traget', test_target.shape)
     # for data in get_one_batch(train_data, train_target, batch_size):
     #     print(data[0].shape, data[1].shape)
+
+    train_mask, val_mask, test_mask = get_masks(target, train_prop, val_prop, save_dir=mask_save_dir)
+    train_data, train_target = get_samples(data, target, train_mask)
+    pdb.set_trace()
+
+    # f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(20, 6))
+    # ax1.imshow(train_mask)
+    # ax2.imshow(val_mask)
+    # ax3.imshow(test_mask)
+    # ax1.set_title('train mask')
+    # ax2.set_title('validation mask')
+    # ax3.set_title('test mask')
+    # ax4.set_title('complete label')
+    # ax4.imshow(train_mask + val_mask + test_mask)
+    # plt.tight_layout()
+    # plt.show()
+    # pdb.set_trace()
 
 

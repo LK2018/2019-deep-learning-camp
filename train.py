@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
+import pdb
 import numpy as np
+import scipy.io as iso
 import torch
 from torch import nn, optim
 from tools import *
@@ -11,17 +12,28 @@ from model import *
 
 # prepare data, set super-parameters
 TRAIN_PROP = 0.2
+VAL_PROP = 0.2
 BATCH_SIZE = 2051
-EPOCH = 1000
-LR = 0.01
+EPOCH = 20000
+LR = 0.001
 TEST_INTERVAL = 1
 
 data_dir = './data/Indian_pines_corrected.mat'
 target_dir = './data/Indian_pines_gt.mat'
 data, target = read_data(data_dir, target_dir)
 
+mask_fname = './data/' + 'train_' + str(TRAIN_PROP) + '_val_' + str(VAL_PROP)
+if not os.path.exists(mask_fname) or os.listdir(mask_fname) is None:
+    train_mask, val_mask, test_mask = get_masks(target, TRAIN_PROP, VAL_PROP, save_dir='./data')
+else:
+    train_mask = sio.loadmat(os.path.join(mask_fname, 'train_mask.mat'))['train_mask']
+    val_mask = sio.loadmat(os.path.join(mask_fname, 'val_mask.mat'))['val_mask']
+    test_mask = sio.loadmat(os.path.join(mask_fname, 'test_mask.mat'))['test_mask']
+
 # if cuda is avaliable, return values' type is 'torch.cuda.FloatTensor'
-train_data, train_target, test_data, test_target = produce_samples(data, target, TRAIN_PROP)
+train_data, train_target = get_samples(data, target, train_mask)
+val_data, val_target = get_samples(data, target, val_mask)
+test_data, test_target = get_samples(data, target, test_mask)
 
 # train model　and save
 model = BpNet()
@@ -47,12 +59,12 @@ for epoch in range(EPOCH):
         optimizer.step()
 
         if idx % TEST_INTERVAL == 0:
-            test_output = model(test_data)
-            test_output = test_output.cpu()  # copy cuda tensor to host memory then convert to numpy
-            test_target = test_target.cpu()
-            test_pred = torch.max(test_output, 1)[1].data.numpy()
-            accuracy = float((test_pred == test_target.data.numpy()).astype(int).sum()) / \
-                       float(test_target.size(0))  # compute accuracy
+            val_output = model(val_data)
+            val_output = val_output.cpu()  # copy cuda tensor to host memory then convert to numpy
+            val_target = val_target.cpu()
+            test_pred = torch.max(val_output, 1)[1].data.numpy()
+            accuracy = float((test_pred == val_target.data.numpy()).astype(int).sum()) / \
+                       float(val_target.size(0))  # compute accuracy
             accuracy_list.append(accuracy)
             print('Batch: {0} | Train Sample: {1} | Label: {2} | Loss: {3:.8f}　| Accuracy: {4:8f}.'. \
                   format(idx + 1, train_data.size(), train_target.size(), loss.item(), accuracy))
@@ -63,7 +75,8 @@ for epoch in range(EPOCH):
         loss_list.append(loss.item())
 
 plot_curves(loss_list, accuracy_list)
-model_name = 'bpnet_' + str(TRAIN_PROP) + '_' + str(BATCH_SIZE) + '_' + str(EPOCH) + '.pkl'
+model_name = 'bpnet_' + str(TRAIN_PROP) + '_' + str(VAL_PROP) + '_' + \
+             str(BATCH_SIZE) + '_' + str(EPOCH) + '.pkl'
 model_dir = os.path.join(save_dir, model_name)
 torch.save(state_dict, model_dir)
 print('Best Results: ')

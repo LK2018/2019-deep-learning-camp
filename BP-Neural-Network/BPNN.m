@@ -1,5 +1,7 @@
 clear;clc;
 X=double(imread('DATA1.tif'));
+
+
 load X11.mat;
 Y=X11;
 X_size=size(X);

@@ -2,10 +2,38 @@
 <project version="4">
   <component name="PublishConfigData" serverName="liquid">
     <serverData>
+      <paths name="likui">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="liquid">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/liquid/pytorch-bp" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/home/liquid/2019-deep-learning-camp" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="lthpc">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="lthpc (project level)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="lthpc@202.204.110.243:22">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
